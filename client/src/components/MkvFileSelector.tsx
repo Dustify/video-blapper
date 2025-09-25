@@ -27,10 +27,12 @@ interface MediaInfo {
   format: FormatInfo;
 }
 
-// --- New type for aspect ratio details ---
+// --- Updated type for aspect ratio details ---
 interface AspectRatioDetails {
   sar: string;
   dar: string;
+  originalResolution: string;
+  targetResolution: string;
 }
 
 const formatDuration = (secondsStr: string): string => {
@@ -60,7 +62,6 @@ export function MkvFileSelector() {
   const [mediaInfo, setMediaInfo] = useState<MediaInfo | null>(null);
   const [cacheBuster, setCacheBuster] = useState<number>(Date.now());
   
-  // --- New state for specific correction details ---
   const [deinterlaceReason, setDeinterlaceReason] = useState<string | null>(null);
   const [aspectRatioDetails, setAspectRatioDetails] = useState<AspectRatioDetails | null>(null);
 
@@ -82,7 +83,6 @@ export function MkvFileSelector() {
     setCropResult(null);
     setMediaInfo(null);
     setError(null);
-    // --- Clear previous correction details ---
     setDeinterlaceReason(null);
     setAspectRatioDetails(null);
 
@@ -103,7 +103,6 @@ export function MkvFileSelector() {
       setCropResult(data.cropDetectResult);
       setMediaInfo(data.mediaInfo);
       setCacheBuster(Date.now());
-      // --- Set new correction details from response ---
       setDeinterlaceReason(data.deinterlaceReason);
       setAspectRatioDetails(data.aspectRatioDetails);
 
@@ -164,14 +163,16 @@ export function MkvFileSelector() {
                       : 'No crop detected.'}
                   </p>
                 )}
-                {/* --- Display more specific correction info --- */}
                 {(deinterlaceReason || aspectRatioDetails) && (
                    <div style={{fontSize: '0.9em'}}>
                     <b>Corrections Applied:</b>
                     {deinterlaceReason && 
                       <span style={{display: 'block', marginLeft: '10px'}}>• Deinterlacing (Field Order: {deinterlaceReason})</span>}
+                    {/* --- Updated display for aspect ratio details --- */}
                     {aspectRatioDetails && 
-                      <span style={{display: 'block', marginLeft: '10px'}}>• Aspect Ratio (SAR: {aspectRatioDetails.sar} to DAR: {aspectRatioDetails.dar})</span>}
+                      <span style={{display: 'block', marginLeft: '10px'}}>
+                        • Aspect Ratio Correction (SAR: {aspectRatioDetails.sar}): <b>{aspectRatioDetails.originalResolution} → {aspectRatioDetails.targetResolution}</b>
+                      </span>}
                   </div>
                 )}
               </div>

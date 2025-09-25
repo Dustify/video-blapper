@@ -80,7 +80,15 @@ router.post('/generate-screenshots', async (req: Request, res: Response) => {
 
     const filters: string[] = [];
     let deinterlaceReason: string | null = null;
-    let aspectRatioDetails: { sar: string; dar: string } | null = null;
+
+    // --- New type for aspect ratio details ---
+    type AspectRatioInfo = {
+      sar: string;
+      dar: string;
+      originalResolution: string;
+      targetResolution: string;
+    };
+    let aspectRatioDetails: AspectRatioInfo | null = null;
 
     if (videoStream?.field_order && videoStream.field_order !== 'progressive') {
       filters.push('yadif');
@@ -88,7 +96,20 @@ router.post('/generate-screenshots', async (req: Request, res: Response) => {
     }
     if (videoStream?.sample_aspect_ratio && videoStream.sample_aspect_ratio !== '1:1') {
       filters.push('scale=iw*sar:ih');
-      aspectRatioDetails = { sar: videoStream.sample_aspect_ratio, dar: videoStream.display_aspect_ratio };
+      const sar = videoStream.sample_aspect_ratio; // e.g., "10:11"
+      const [sarNum, sarDen] = sar.split(':').map(Number);
+      const originalWidth = videoStream.width;
+      const originalHeight = videoStream.height;
+      
+      if (originalWidth && originalHeight && sarNum && sarDen) {
+        const targetWidth = Math.round(originalWidth * (sarNum / sarDen));
+        aspectRatioDetails = { 
+            sar, 
+            dar: videoStream.display_aspect_ratio,
+            originalResolution: `${originalWidth}x${originalHeight}`,
+            targetResolution: `${targetWidth}x${originalHeight}`
+        };
+      }
     }
     if (cropDetectResult.startsWith('crop=')) {
       filters.push(cropDetectResult);
