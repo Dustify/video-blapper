@@ -1,0 +1,10 @@
+{
+	"name": "Node.js",
+	"image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+	"mounts": [
+		"type=bind,source=${localEnv:HOME}/rip,target=/data"
+	],
+	"features": {
+		"ghcr.io/devcontainers-extra/features/ffmpeg-apt-get": {}
+	}
+}

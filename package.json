@@ -1,0 +1,19 @@
+{
+  "name": "video-blapper",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=server\" \"npm run dev --workspace=client\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

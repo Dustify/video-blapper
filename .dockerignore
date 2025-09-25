@@ -1,0 +1,16 @@
+# .dockerignore
+
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build artifacts
+*/dist/
+.env
+
+# Git and OS files
+.git
+.DS_Store
+
+# Devcontainer files
+.devcontainer/
