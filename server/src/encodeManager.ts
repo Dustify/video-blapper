@@ -100,6 +100,8 @@ class EncodeManager extends EventEmitter {
         args.push('-map', `0:${streamIndex}`);
         args.push(`-c:a:${i}`, job.audioCodec, `-b:a:${i}`, job.audioBitrate);
       });
+      
+      args.push('-map_chapters', '0');
 
       args.push('-y', outputPath);
       console.log(`[EncodeManager] Spawning ffmpeg with args: ${args.join(' ')}`);

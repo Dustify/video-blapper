@@ -1,6 +1,7 @@
 // client/src/pages/VideoDetailPage.tsx
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 // ... (Keep all the interface definitions: StreamTags, MediaStream, etc.)
 interface StreamTags {
@@ -224,7 +225,7 @@ export function VideoDetailPage() {
     const handleAddToQueue = async () => {
         if (!filePath) return;
         try {
-            await fetch('/api/encode', {
+            const response = await fetch('/api/encode', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -236,10 +237,15 @@ export function VideoDetailPage() {
                     ...encodingSettings,
                 }),
             });
-            alert('Added to encode queue!');
+
+            if (!response.ok) {
+                throw new Error('Server responded with an error.');
+            }
+
+            toast.success('Added to encode queue!');
         } catch (error) {
             console.error("Failed to add to queue", error);
-            alert('Failed to add to queue.');
+            toast.error('Failed to add to queue.');
         }
     };
     
