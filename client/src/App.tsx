@@ -1,13 +1,15 @@
 // client/src/App.tsx
-import { MkvFileSelector } from './components/MkvFileSelector';
+import { Routes, Route } from 'react-router-dom';
+import { FileListPage } from './pages/FileListPage';
+import { VideoDetailPage } from './pages/VideoDetailPage';
 import './App.css';
 
 function App() {
   return (
-    <>
-      <h1>Video App</h1>
-      <MkvFileSelector />
-    </>
+    <Routes>
+      <Route path="/" element={<FileListPage />} />
+      <Route path="/video/:fileId" element={<VideoDetailPage />} />
+    </Routes>
   );
 }
 
