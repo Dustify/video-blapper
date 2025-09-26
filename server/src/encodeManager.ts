@@ -49,12 +49,19 @@ class EncodeManager extends EventEmitter {
 
   async addJob(jobDetails: Omit<EncodeJob, 'id' | 'status' | 'progress'>): Promise<EncodeJob> {
     const stats = await fs.stat(jobDetails.filePath);
+    
+    const outputFileName = (jobDetails.outputFilename && jobDetails.outputFilename.trim() !== '')
+      ? `${jobDetails.outputFilename}.mp4`
+      : `${path.basename(jobDetails.filePath, '.mkv')}-encoded.mp4`;
+    const outputPath = path.join(ENCODES_OUTPUT_PATH, outputFileName);
+    
     const job: EncodeJob = {
       ...jobDetails,
       id: Date.now().toString(),
       status: 'pending',
       progress: 0,
       originalFileSize: stats.size,
+      outputPath: outputPath,
     };
     this.queue.push(job);
     console.log(`[EncodeManager] Job added to queue: ${job.id} for file ${job.filePath}`);
@@ -76,11 +83,8 @@ class EncodeManager extends EventEmitter {
 
     try {
       const job = this.currentJob;
-      const outputFileName = (job.outputFilename && job.outputFilename.trim() !== '')
-        ? `${job.outputFilename}.mp4`
-        : `${path.basename(job.filePath, '.mkv')}-encoded.mp4`;
-      const outputPath = path.join(ENCODES_OUTPUT_PATH, outputFileName);
-      job.outputPath = outputPath;
+      // outputPath is now guaranteed to be on the job object
+      const outputPath = job.outputPath!;
 
       const args: string[] = [
         '-i', job.filePath,
