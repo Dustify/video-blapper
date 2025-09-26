@@ -153,29 +153,35 @@ export function VideoDetailPage() {
     const filePath = fileId ? atob(fileId) : null;
     const currentAspectRatio = searchParams.get('ar') || 'None';
 
+
     useEffect(() => {
-        // Fetch default encoding settings when the component mounts
-        const fetchDefaults = async () => {
+        if (!filePath) return;
+
+        const fetchDefaultsAndSetFilename = async () => {
+            let filenameSetFromDefaults = false;
+            // Fetch defaults
             try {
                 const response = await fetch('/api/encode/defaults');
                 if (response.ok) {
                     const data = await response.json();
                     setEncodingSettings(prev => ({ ...prev, ...data }));
+                    if (data.outputFilename) {
+                        setOutputFilename(data.outputFilename);
+                        filenameSetFromDefaults = true;
+                    }
                 }
             } catch (error) {
                 console.error("Failed to fetch default encoding settings", error);
             }
-        };
-        fetchDefaults();
-    }, []);
-
-    useEffect(() => {
-        if (filePath) {
-            // Set default output filename from source file path
-            const baseName = filePath.split(/[\\/]/).pop()?.replace(/\.[^/.]+$/, "") || '';
-            setOutputFilename(baseName);
+            
+            if (!filenameSetFromDefaults) {
+                // Set default output filename from source file path
+                const baseName = filePath.split(/[\\/]/).pop()?.replace(/\.[^/.]+$/, "") || '';
+                setOutputFilename(baseName);
+            }
         }
-    }, [filePath]);
+        fetchDefaultsAndSetFilename();
+    }, [filePath]); // Re-run when filePath changes
 
     useEffect(() => {
         if (!filePath) return;

@@ -3,7 +3,8 @@
 	"image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
 	"mounts": [
 		"type=bind,source=${localEnv:HOME}/rip,target=/data",
-		"type=bind,source=${localEnv:HOME}/rip,target=/output"
+		"type=bind,source=${localEnv:HOME}/rip,target=/output",
+		"type=bind,source=${localWorkspaceFolder}/config,target=/config"
 	],
 	"features": {},
 	"postCreateCommand": "sudo apt-get update && sudo apt-get install -y wget && ARCH=$(uname -m | sed 's/x86_64/amd64/') && wget \"https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v7.1.2-1/jellyfin-ffmpeg7_7.1.2-1-bookworm_${ARCH}.deb\" && sudo dpkg -i \"jellyfin-ffmpeg7_7.1.2-1-bookworm_${ARCH}.deb\" || sudo apt-get install -f -y && rm \"jellyfin-ffmpeg7_7.1.2-1-bookworm_${ARCH}.deb\""

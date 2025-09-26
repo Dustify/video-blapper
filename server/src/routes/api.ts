@@ -267,6 +267,7 @@ router.post('/encode', async (req, res) => {
     qp_init,
     audioCodec,
     audioBitrate,
+    outputFilename,
   };
   try {
     await fs.writeFile(DEFAULTS_PATH, JSON.stringify(newDefaults, null, 2));

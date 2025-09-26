@@ -4,5 +4,6 @@ services:
     ports:
       - "${HOST_PORT:-8080}:8080"
     volumes:
-      - "${INPUT_PATH:-~/rip}:/data"
-      - "${OUTPUT_PATH:-${INPUT_PATH:-~/rip}}:/output"
+      - "${INPUT_PATH:-./rip}:/data"
+      - "${OUTPUT_PATH:-${INPUT_PATH:-./rip}}:/output"
+      - "./config:/config"
