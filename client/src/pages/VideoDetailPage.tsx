@@ -144,9 +144,18 @@ export function VideoDetailPage() {
         audioCodec: 'aac',
         audioBitrate: '160k',
     });
+    const [outputFilename, setOutputFilename] = useState('');
     
     const filePath = fileId ? atob(fileId) : null;
     const currentAspectRatio = searchParams.get('ar') || 'None';
+
+    useEffect(() => {
+        if (filePath) {
+            // Set default output filename from source file path
+            const baseName = filePath.split(/[\\/]/).pop()?.replace(/\.[^/.]+$/, "") || '';
+            setOutputFilename(baseName);
+        }
+    }, [filePath]);
 
     useEffect(() => {
         if (!filePath) return;
@@ -234,6 +243,7 @@ export function VideoDetailPage() {
                     audioStreams: selectedAudioStreams,
                     crop: cropResult?.startsWith('crop=') ? cropResult : null,
                     deinterlace: !!deinterlaceReason,
+                    outputFilename,
                     ...encodingSettings,
                 }),
             });
@@ -295,6 +305,19 @@ export function VideoDetailPage() {
         <div style={{ margin: '20px 0', padding: '10px', border: '1px solid #ccc' }}>
             <h4>Encoding Settings</h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '10px', alignItems: 'center' }}>
+                <label htmlFor="outputFilename">Output Filename:</label>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <input
+                        type="text"
+                        id="outputFilename"
+                        name="outputFilename"
+                        value={outputFilename}
+                        onChange={(e) => setOutputFilename(e.target.value)}
+                        style={{ flexGrow: 1 }}
+                    />
+                    <span style={{ marginLeft: '8px' }}>.mp4</span>
+                </div>
+
                 <label htmlFor="videoCodec">Video Codec:</label>
                 <select id="videoCodec" name="videoCodec" value={encodingSettings.videoCodec} onChange={handleEncodingSettingChange}>
                     <option value="libx264">x264</option>
@@ -360,7 +383,7 @@ export function VideoDetailPage() {
                     </div>
                     )}
                 </div>
-                 <button onClick={handleAddToQueue} disabled={isProcessing || selectedAudioStreams.length === 0}>
+                 <button onClick={handleAddToQueue} disabled={isProcessing || selectedAudioStreams.length === 0 || !outputFilename}>
                     Add to Encode Queue
                 </button>
                 {screenshots.length > 0 && (

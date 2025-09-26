@@ -7,6 +7,7 @@ interface EncodeJob {
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   progress: number;
   error?: string;
+  outputPath?: string;
   startTime?: number;
   originalFileSize?: number;
   currentFileSize?: number;
@@ -78,6 +79,7 @@ export function EncodeQueue() {
     return (
         <div key={job.id} style={{ border: '1px solid #ddd', padding: '10px', marginBottom: '10px' }}>
             <p style={{ wordBreak: 'break-all' }}><b>File:</b> {job.filePath}</p>
+            {job.outputPath && <p style={{ wordBreak: 'break-all' }}><b>Output:</b> {job.outputPath}</p>}
             <p><b>Status:</b> {job.status}</p>
             {job.status === 'processing' && (
                 <>

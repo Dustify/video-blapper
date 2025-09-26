@@ -26,6 +26,7 @@ export interface EncodeJob {
   progress: number;
   error?: string;
   outputPath?: string;
+  outputFilename?: string;
   startTime?: number;
   originalFileSize?: number;
   currentFileSize?: number;
@@ -73,7 +74,9 @@ class EncodeManager extends EventEmitter {
 
     try {
       const job = this.currentJob;
-      const outputFileName = `${path.basename(job.filePath, '.mkv')}-encoded.mp4`;
+      const outputFileName = (job.outputFilename && job.outputFilename.trim() !== '')
+        ? `${job.outputFilename}.mp4`
+        : `${path.basename(job.filePath, '.mkv')}-encoded.mp4`;
       const outputPath = path.join(ENCODES_DIR, outputFileName);
       job.outputPath = outputPath;
 
@@ -102,6 +105,7 @@ class EncodeManager extends EventEmitter {
       });
       
       args.push('-map_chapters', '0');
+      args.push('-movflags', '+faststart');
 
       args.push('-y', outputPath);
       console.log(`[EncodeManager] Spawning ffmpeg with args: ${args.join(' ')}`);
