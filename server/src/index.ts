@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { __dirname, SCREENSHOTS_DIR } from './config.js';
 import apiRouter from './routes/api.js';
+import { encodeManager } from './encodeManager.js';
 
 const app: Express = express();
 const port = process.env.PORT || 8080;
@@ -32,4 +33,5 @@ if (process.env.NODE_ENV === 'production') {
 
 app.listen(port, () => {
   console.log(`[server]: Server is running at http://localhost:${port}`);
+  encodeManager.initialize();
 });

@@ -9,6 +9,7 @@ interface StreamTags {
   }
   
   interface MediaStream {
+    index: number;
     codec_type: 'video' | 'audio';
     codec_name: string;
     tags?: StreamTags;
@@ -42,6 +43,14 @@ interface StreamTags {
     sample_aspect_ratio?: string;
     cropDimensions?: CropDimensions | null;
   }
+
+interface EncodingSettings {
+    videoCodec: 'libx264' | 'libx265';
+    videoPreset: 'veryslow' | 'slower' | 'slow' | 'medium' | 'fast' | 'faster' | 'veryfast';
+    videoCrf: number;
+    audioCodec: 'aac'; // Keep simple
+    audioBitrate: string;
+}
   
 const ASPECT_RATIO_OPTIONS = ['None', '4:3', '16:9', '1.85:1', '2.00:1', '2.39:1'];
 
@@ -126,6 +135,14 @@ export function VideoDetailPage() {
     const [mediaInfo, setMediaInfo] = useState<MediaInfo | null>(null);
     const [cacheBuster, setCacheBuster] = useState<number>(Date.now());
     const [deinterlaceReason, setDeinterlaceReason] = useState<string | null>(null);
+    const [selectedAudioStreams, setSelectedAudioStreams] = useState<number[]>([]);
+    const [encodingSettings, setEncodingSettings] = useState<EncodingSettings>({
+        videoCodec: 'libx265',
+        videoPreset: 'veryslow',
+        videoCrf: 18,
+        audioCodec: 'aac',
+        audioBitrate: '160k',
+    });
     
     const filePath = fileId ? atob(fileId) : null;
     const currentAspectRatio = searchParams.get('ar') || 'None';
@@ -164,6 +181,13 @@ export function VideoDetailPage() {
                         setSearchParams({ ar: bestGuess }, { replace: true });
                     }
                 }
+                
+                // Pre-select the first audio stream
+                const firstAudioStream = data.mediaInfo?.streams.find((s: MediaStream) => s.codec_type === 'audio');
+                if (firstAudioStream) {
+                    setSelectedAudioStreams([firstAudioStream.index]);
+                }
+
 
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'An unknown error occurred.');
@@ -181,6 +205,44 @@ export function VideoDetailPage() {
         setSearchParams({ ar: newAspectRatio });
     }
     
+    const handleAudioStreamChange = (streamIndex: number) => {
+        setSelectedAudioStreams(prev =>
+            prev.includes(streamIndex)
+                ? prev.filter(index => index !== streamIndex)
+                : [...prev, streamIndex]
+        );
+    };
+
+    const handleEncodingSettingChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setEncodingSettings(prev => ({
+            ...prev,
+            [name]: name === 'videoCrf' ? parseInt(value, 10) : value,
+        }));
+    };
+    
+    const handleAddToQueue = async () => {
+        if (!filePath) return;
+        try {
+            await fetch('/api/encode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filePath,
+                    aspectRatio: currentAspectRatio,
+                    audioStreams: selectedAudioStreams,
+                    crop: cropResult?.startsWith('crop=') ? cropResult : null,
+                    deinterlace: !!deinterlaceReason,
+                    ...encodingSettings,
+                }),
+            });
+            alert('Added to encode queue!');
+        } catch (error) {
+            console.error("Failed to add to queue", error);
+            alert('Failed to add to queue.');
+        }
+    };
+    
     const renderMediaInfo = () => {
         if (!mediaInfo) return null;
         const videoStreams = mediaInfo.streams.filter((s) => s.codec_type === 'video');
@@ -193,7 +255,17 @@ export function VideoDetailPage() {
                     <div key={i}><b>Video:</b> {s.codec_name}, {s.width}x{s.height}, {s.avg_frame_rate} fps</div>
                 ))}
                 {audioStreams.map((s, i) => (
-                    <div key={i}><b>Audio:</b> {s.tags?.language?.toUpperCase()} {s.codec_name} ({s.channel_layout})</div>
+                     <div key={i}>
+                        <input
+                            type="checkbox"
+                            id={`audio-${s.index}`}
+                            checked={selectedAudioStreams.includes(s.index)}
+                            onChange={() => handleAudioStreamChange(s.index)}
+                        />
+                        <label htmlFor={`audio-${s.index}`}>
+                            <b>Audio ({s.index}):</b> {s.tags?.language?.toUpperCase()} {s.codec_name} ({s.channel_layout})
+                        </label>
+                    </div>
                 ))}
             </div>
         );
@@ -213,6 +285,46 @@ export function VideoDetailPage() {
         );
       };
 
+    const renderEncodingSettings = () => (
+        <div style={{ margin: '20px 0', padding: '10px', border: '1px solid #ccc' }}>
+            <h4>Encoding Settings</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '10px', alignItems: 'center' }}>
+                <label htmlFor="videoCodec">Video Codec:</label>
+                <select id="videoCodec" name="videoCodec" value={encodingSettings.videoCodec} onChange={handleEncodingSettingChange}>
+                    <option value="libx264">x264</option>
+                    <option value="libx265">x265</option>
+                </select>
+                
+                <label htmlFor="videoPreset">Preset:</label>
+                <select id="videoPreset" name="videoPreset" value={encodingSettings.videoPreset} onChange={handleEncodingSettingChange}>
+                    {['veryslow', 'slower', 'slow', 'medium', 'fast', 'faster', 'veryfast'].map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+
+                <label htmlFor="videoCrf">CRF:</label>
+                <input
+                    type="number"
+                    id="videoCrf"
+                    name="videoCrf"
+                    value={encodingSettings.videoCrf}
+                    onChange={handleEncodingSettingChange}
+                    min="0" max="51"
+                />
+                
+                <label>Audio Codec:</label>
+                <span>{encodingSettings.audioCodec}</span>
+                
+                <label htmlFor="audioBitrate">Audio Bitrate:</label>
+                <input
+                    type="text"
+                    id="audioBitrate"
+                    name="audioBitrate"
+                    value={encodingSettings.audioBitrate}
+                    onChange={handleEncodingSettingChange}
+                />
+            </div>
+        </div>
+    );
+
     return (
         <div>
             <p><Link to="/">← Back to File List</Link></p>
@@ -226,6 +338,7 @@ export function VideoDetailPage() {
                 <>
                 {renderMediaInfo()}
                 {renderControls()}
+                {renderEncodingSettings()}
                 <div style={{ backgroundColor: '#eee', padding: '10px', margin: '10px 0' }}>
                     {cropResult && (
                     <p style={{ margin: 0, paddingBottom: deinterlaceReason ? '8px' : '0' }}>
@@ -241,6 +354,9 @@ export function VideoDetailPage() {
                     </div>
                     )}
                 </div>
+                 <button onClick={handleAddToQueue} disabled={isProcessing || selectedAudioStreams.length === 0}>
+                    Add to Encode Queue
+                </button>
                 {screenshots.length > 0 && (
                     <div>
                     <h3>Screenshots:</h3>

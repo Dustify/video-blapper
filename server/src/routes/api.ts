@@ -6,6 +6,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import crypto from 'crypto';
 import { MOUNTED_FOLDER_PATH, SCREENSHOTS_DIR } from '../config.js';
+import { encodeManager } from '../encodeManager.js';
 
 const router = Router();
 
@@ -35,9 +36,9 @@ async function detectCrop(filePath: string, duration: number): Promise<string> {
       duration * 0.5, // 50%
       duration * 0.8, // 80%
     ];
-  
+
     const cropResults: string[] = [];
-  
+
     for (const ts of timestamps) {
       const crop = await new Promise<string>((resolve, reject) => {
         const ffmpegProcess = spawn('ffmpeg', [
@@ -48,7 +49,7 @@ async function detectCrop(filePath: string, duration: number): Promise<string> {
           '-f', 'null',
           '-'
         ]);
-  
+
         let stderr = '';
         ffmpegProcess.stderr.on('data', (data) => (stderr += data.toString()));
         ffmpegProcess.on('error', reject);
@@ -64,21 +65,21 @@ async function detectCrop(filePath: string, duration: number): Promise<string> {
       });
       cropResults.push(crop);
     }
-  
+
     // Find the most frequent crop value
     const cropCounts = cropResults.reduce((acc, crop) => {
       acc[crop] = (acc[crop] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-  
+
     const mostFrequentCrop = Object.keys(cropCounts).reduce((a, b) =>
       cropCounts[a] > cropCounts[b] ? a : b
     );
-  
+
     if (mostFrequentCrop !== 'No crop detected') {
       return mostFrequentCrop;
     }
-  
+
     return 'No crop detected';
   }
 
@@ -119,13 +120,13 @@ router.post('/generate-screenshots', async (req: Request, res: Response) => {
 
     const duration = parseFloat(mediaInfo?.format?.duration);
     if (isNaN(duration)) throw new Error('Could not parse video duration from media info.');
-    
+
     const cropDetectResult = await detectCrop(filePath, duration);
     const videoStream = mediaInfo?.streams?.find((s: any) => s.codec_type === 'video');
     const filters: string[] = [];
     let deinterlaceReason: string | null = null;
     let cropDimensions = null;
-    
+
     console.log(`→ Client requested aspect ratio: ${aspectRatio || 'None'}`);
     console.log(`→ Video Stream Details from ffprobe:`);
     console.log(`  - Width: ${videoStream?.width}`);
@@ -161,7 +162,7 @@ router.post('/generate-screenshots', async (req: Request, res: Response) => {
     } else {
         console.log('→ No manual aspect ratio override. Not applying scale filter.');
     }
-    
+
     console.log(`→ Final FFmpeg filters: [${filters.join(', ')}]`);
 
     const fileHash = crypto.createHash('sha1').update(filePath).digest('hex');
@@ -175,7 +176,7 @@ router.post('/generate-screenshots', async (req: Request, res: Response) => {
         const timestamp = (duration / 13) * (i + 1);
         const screenshotName = `${String(i + 1).padStart(2, '0')}.jpg`;
         const outputPath = path.join(outputDir, screenshotName);
-        
+
         const args = ['-sn', '-ss', String(timestamp), '-i', filePath];
         if (filters.length > 0) args.push('-vf', filters.join(', '));
         args.push('-vframes', '1', '-q:v', '2', outputPath);
@@ -211,5 +212,50 @@ router.post('/generate-screenshots', async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Failed to generate screenshots or detect crop.' });
   }
 });
+
+// --- Encode Queue Routes ---
+
+router.post('/encode', (req, res) => {
+    const { 
+        filePath, 
+        aspectRatio, 
+        audioStreams, 
+        crop, 
+        deinterlace,
+        videoCodec,
+        videoPreset,
+        videoCrf,
+        audioCodec,
+        audioBitrate
+    } = req.body;
+
+    if (!filePath || !audioStreams) {
+      return res.status(400).json({ message: 'filePath and audioStreams are required.' });
+    }
+    const job = encodeManager.addJob({ 
+        filePath, 
+        aspectRatio, 
+        audioStreams, 
+        crop, 
+        deinterlace,
+        videoCodec: videoCodec || 'libx265',
+        videoPreset: videoPreset || 'veryslow',
+        videoCrf: videoCrf || 18,
+        audioCodec: audioCodec || 'aac',
+        audioBitrate: audioBitrate || '160k'
+    });
+    res.status(202).json(job);
+});
+
+router.get('/encode/queue', (req, res) => {
+    res.json(encodeManager.getQueueState());
+});
+
+router.post('/encode/cancel/:jobId', (req, res) => {
+    const { jobId } = req.params;
+    encodeManager.cancelJob(jobId);
+    res.status(200).json({ message: 'Job cancellation requested.' });
+});
+
 
 export default router;

@@ -40,3 +40,19 @@
 .read-the-docs {
   color: #888;
 }
+
+.main-layout {
+  display: flex;
+  gap: 20px;
+}
+
+.sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  border-right: 1px solid #ccc;
+  padding-right: 20px;
+}
+
+.main-content {
+  flex-grow: 1;
+}
