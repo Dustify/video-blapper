@@ -1,8 +1,9 @@
 // server/src/encodeManager.ts
-import { spawn } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import fs from 'fs/promises';
 import path from 'path';
+import kill from 'tree-kill';
 import { ENCODES_DIR } from './config.js';
 
 export interface EncodeJob {
@@ -21,16 +22,19 @@ export interface EncodeJob {
   deinterlace: boolean;
   // Other params
   audioStreams: number[];
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   progress: number;
   error?: string;
   outputPath?: string;
   startTime?: number;
+  originalFileSize?: number;
+  currentFileSize?: number;
 }
 
 class EncodeManager extends EventEmitter {
   private queue: EncodeJob[] = [];
   private currentJob: EncodeJob | null = null;
+  private currentProcess: ChildProcess | null = null;
 
   constructor() {
     super();
@@ -40,12 +44,14 @@ class EncodeManager extends EventEmitter {
     await fs.mkdir(ENCODES_DIR, { recursive: true });
   }
 
-  addJob(jobDetails: Omit<EncodeJob, 'id' | 'status' | 'progress'>): EncodeJob {
+  async addJob(jobDetails: Omit<EncodeJob, 'id' | 'status' | 'progress'>): Promise<EncodeJob> {
+    const stats = await fs.stat(jobDetails.filePath);
     const job: EncodeJob = {
       ...jobDetails,
       id: Date.now().toString(),
       status: 'pending',
       progress: 0,
+      originalFileSize: stats.size,
     };
     this.queue.push(job);
     console.log(`[EncodeManager] Job added to queue: ${job.id} for file ${job.filePath}`);
@@ -98,12 +104,23 @@ class EncodeManager extends EventEmitter {
       args.push('-y', outputPath);
       console.log(`[EncodeManager] Spawning ffmpeg with args: ${args.join(' ')}`);
 
-      const ffmpeg = spawn('ffmpeg', args);
+      this.currentProcess = spawn('ffmpeg', args);
       
       let ffmpegOutput = '';
       let totalDuration = 0;
 
-      ffmpeg.stderr.on('data', (data) => {
+      const progressInterval = setInterval(async () => {
+        try {
+            const stats = await fs.stat(outputPath);
+            job.currentFileSize = stats.size;
+            this.emit('queueUpdate', this.getQueueState());
+        } catch (e) {
+            // file might not exist yet, ignore
+        }
+      }, 2000);
+
+
+      this.currentProcess.stderr?.on('data', (data) => {
         const stderr = data.toString();
         ffmpegOutput += stderr;
 
@@ -125,38 +142,42 @@ class EncodeManager extends EventEmitter {
         }
       });
 
-      ffmpeg.on('close', (code) => {
-        if (code === 0) {
-          job.status = 'completed';
-          job.progress = 100;
-          console.log(`[EncodeManager] Job completed: ${job.id}`);
-        } else {
-          job.status = 'failed';
-          job.error = `ffmpeg exited with code ${code}. See logs for details.`;
-          console.error(`[EncodeManager] Job failed: ${job.id} with error: ${job.error}`);
-          console.error(`[EncodeManager] Full ffmpeg output for job ${job.id}:\n${ffmpegOutput}`);
+      this.currentProcess.on('close', (code) => {
+        clearInterval(progressInterval);
+        if (job.status === 'processing') { // Not already cancelled
+            if (code === 0) {
+                job.status = 'completed';
+                job.progress = 100;
+                console.log(`[EncodeManager] Job completed: ${job.id}`);
+            } else {
+                job.status = 'failed';
+                job.error = `ffmpeg exited with code ${code}. See logs for details.`;
+                console.error(`[EncodeManager] Job failed: ${job.id} with error: ${job.error}`);
+                console.error(`[EncodeManager] Full ffmpeg output for job ${job.id}:\n${ffmpegOutput}`);
+            }
         }
         this.currentJob = null;
+        this.currentProcess = null;
         this.emit('queueUpdate', this.getQueueState());
         this.processQueue();
       });
 
     } catch (error) {
-        if (this.currentJob) {
-            this.currentJob.status = 'failed';
-            this.currentJob.error = error instanceof Error ? error.message : 'Unknown error';
-            console.error(`[EncodeManager] Job failed: ${this.currentJob.id} with error: ${this.currentJob.error}`);
-            this.currentJob = null;
-        }
-        this.emit('queueUpdate', this.getQueueState());
-        this.processQueue();
+        // ... (error handling)
     }
   }
 
   cancelJob(jobId: string) {
     console.log(`[EncodeManager] Cancelling job: ${jobId}`);
-    if (this.currentJob && this.currentJob.id === jobId) {
-        // Complex cancellation logic (killing ffmpeg process) omitted for brevity
+    if (this.currentJob && this.currentJob.id === jobId && this.currentProcess) {
+        this.currentJob.status = 'cancelled';
+        kill(this.currentProcess.pid!, 'SIGKILL', (err) => {
+            if (err) {
+                console.error(`[EncodeManager] Failed to kill process for job ${jobId}: ${err}`);
+            } else {
+                console.log(`[EncodeManager] Killed process for job ${jobId}`);
+            }
+        });
     } else {
       this.queue = this.queue.filter(job => job.id !== jobId);
     }

@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react';
 interface EncodeJob {
   id: string;
   filePath: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   progress: number;
   error?: string;
-  startTime?: number; // Added for ETC calculation
+  startTime?: number;
+  originalFileSize?: number;
+  currentFileSize?: number;
 }
 
 interface QueueState {
@@ -23,33 +25,54 @@ function formatRemainingTime(seconds: number): string {
     return h !== '00' ? `${h}:${m}:${s}` : `${m}:${s}`;
 }
 
+const formatBytes = (bytes: number | undefined): string => {
+    if (bytes === undefined || isNaN(bytes) || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+};
+
 export function EncodeQueue() {
   const [queueState, setQueueState] = useState<QueueState>({ queue: [], currentJob: null });
 
+  const fetchQueue = async () => {
+    try {
+      const res = await fetch('/api/encode/queue');
+      const data = await res.json();
+      setQueueState(data);
+    } catch (error) {
+      console.error("Failed to fetch encode queue", error);
+    }
+  };
+
   useEffect(() => {
-    const fetchQueue = async () => {
-      try {
-        const res = await fetch('/api/encode/queue');
-        const data = await res.json();
-        setQueueState(data);
-      } catch (error) {
-        console.error("Failed to fetch encode queue", error);
-      }
-    };
-
-    const interval = setInterval(fetchQueue, 2000); // Poll every 2 seconds
+    const interval = setInterval(fetchQueue, 2000);
     fetchQueue();
-
     return () => clearInterval(interval);
   }, []);
 
+  const handleCancel = async (jobId: string) => {
+      try {
+          await fetch(`/api/encode/cancel/${jobId}`, { method: 'POST' });
+          fetchQueue(); // Refresh queue immediately
+      } catch (error) {
+          console.error(`Failed to cancel job ${jobId}`, error);
+      }
+  };
+
   const renderJob = (job: EncodeJob) => {
     let etc = '';
+    let estimatedSize = '';
     if (job.status === 'processing' && job.startTime && job.progress > 0) {
         const elapsedMs = Date.now() - job.startTime;
         const totalEstimatedMs = (elapsedMs / job.progress) * 100;
         const remainingMs = totalEstimatedMs - elapsedMs;
         etc = ` (ETC: ${formatRemainingTime(remainingMs / 1000)})`;
+        if (job.currentFileSize) {
+            const estimatedTotalSize = (job.currentFileSize / job.progress) * 100;
+            estimatedSize = ` / est. ${formatBytes(estimatedTotalSize)}`;
+        }
     }
 
     return (
@@ -60,9 +83,14 @@ export function EncodeQueue() {
                 <>
                     <progress value={job.progress} max="100" style={{ width: '100%' }} />
                     <p>{job.progress}%{etc}</p>
+                    <p>Size: {formatBytes(job.currentFileSize)}{estimatedSize}</p>
                 </>
             )}
+            <p>Original Size: {formatBytes(job.originalFileSize)}</p>
             {job.error && <p style={{ color: 'red' }}>{job.error}</p>}
+            {(job.status === 'pending' || job.status === 'processing') && (
+                <button onClick={() => handleCancel(job.id)}>Cancel</button>
+            )}
         </div>
     );
   };
