@@ -4,4 +4,4 @@ services:
     ports:
       - "${HOST_PORT:-8080}:8080"
     volumes:
-      - ~/rip:/data
+      - "${INPUT_PATH:-~/rip}:/data"
