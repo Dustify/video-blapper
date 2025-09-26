@@ -26,19 +26,21 @@ RUN npm run build
 
 
 # ---- Production Stage ----
-FROM node:22-alpine AS production
+# Switch to a Debian-based image to match the devcontainer and ensure compatibility
+FROM node:22-bookworm AS production
 WORKDIR /app
 
 # --- Install custom ffmpeg and dependencies ---
 ARG TARGETARCH
-RUN apk add --no-cache wget dpkg libbluray lame libopenmpt opus libpciaccess libtheora libvorbis libvpx libx11-xcb x264-libs libxcb libxshmfence zvbi ocl-icd && \
+RUN apt-get update && apt-get install -y wget && \
     case ${TARGETARCH} in \
         "amd64") ARCH="amd64" ;; \
         "arm64") ARCH="arm64" ;; \
     esac && \
     wget "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v7.1.2-1/jellyfin-ffmpeg7_7.1.2-1-bookworm_${ARCH}.deb" && \
-    dpkg -i "jellyfin-ffmpeg7_7.1.2-1-bookworm_${ARCH}.deb" && \
-    rm "jellyfin-ffmpeg7_7.1.2-1-bookworm_${ARCH}.deb"
+    dpkg -i "jellyfin-ffmpeg7_7.1.2-1-bookworm_${ARCH}.deb" || apt-get install -f -y && \
+    rm "jellyfin-ffmpeg7_7.1.2-1-bookworm_${ARCH}.deb" && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 # -------------------------------------------
 
 ENV NODE_ENV=production
