@@ -227,7 +227,9 @@ router.post('/encode', (req, res) => {
         videoCrf,
         audioCodec,
         audioBitrate,
-        outputFilename
+        outputFilename,
+        rc_mode,
+        qp_init
     } = req.body;
 
     if (!filePath || !audioStreams) {
@@ -244,7 +246,9 @@ router.post('/encode', (req, res) => {
         videoCrf: videoCrf || 18,
         audioCodec: audioCodec || 'aac',
         audioBitrate: audioBitrate || '160k',
-        outputFilename
+        outputFilename,
+        rc_mode,
+        qp_init
     });
     res.status(202).json(job);
 });

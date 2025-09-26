@@ -46,9 +46,11 @@ interface StreamTags {
   }
 
 interface EncodingSettings {
-    videoCodec: 'libx264' | 'libx265';
+    videoCodec: 'libx264' | 'libx265' | 'hevc_rkmpp';
     videoPreset: 'veryslow' | 'slower' | 'slow' | 'medium' | 'fast' | 'faster' | 'veryfast';
     videoCrf: number;
+    rc_mode: number;
+    qp_init: number;
     audioCodec: 'aac'; // Keep simple
     audioBitrate: string;
 }
@@ -141,6 +143,8 @@ export function VideoDetailPage() {
         videoCodec: 'libx265',
         videoPreset: 'veryslow',
         videoCrf: 18,
+        rc_mode: 2,
+        qp_init: -1,
         audioCodec: 'aac',
         audioBitrate: '160k',
     });
@@ -227,7 +231,7 @@ export function VideoDetailPage() {
         const { name, value } = e.target;
         setEncodingSettings(prev => ({
             ...prev,
-            [name]: name === 'videoCrf' ? parseInt(value, 10) : value,
+            [name]: ['videoCrf', 'rc_mode', 'qp_init'].includes(name) ? parseInt(value, 10) : value,
         }));
     };
     
@@ -322,22 +326,49 @@ export function VideoDetailPage() {
                 <select id="videoCodec" name="videoCodec" value={encodingSettings.videoCodec} onChange={handleEncodingSettingChange}>
                     <option value="libx264">x264</option>
                     <option value="libx265">x265</option>
+                    <option value="hevc_rkmpp">hevc_rkmpp (Hardware)</option>
                 </select>
                 
-                <label htmlFor="videoPreset">Preset:</label>
-                <select id="videoPreset" name="videoPreset" value={encodingSettings.videoPreset} onChange={handleEncodingSettingChange}>
-                    {['veryslow', 'slower', 'slow', 'medium', 'fast', 'faster', 'veryfast'].map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
+                {(encodingSettings.videoCodec === 'libx264' || encodingSettings.videoCodec === 'libx265') && (
+                    <>
+                        <label htmlFor="videoPreset">Preset:</label>
+                        <select id="videoPreset" name="videoPreset" value={encodingSettings.videoPreset} onChange={handleEncodingSettingChange}>
+                            {['veryslow', 'slower', 'slow', 'medium', 'fast', 'faster', 'veryfast'].map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
 
-                <label htmlFor="videoCrf">CRF:</label>
-                <input
-                    type="number"
-                    id="videoCrf"
-                    name="videoCrf"
-                    value={encodingSettings.videoCrf}
-                    onChange={handleEncodingSettingChange}
-                    min="0" max="51"
-                />
+                        <label htmlFor="videoCrf">CRF:</label>
+                        <input
+                            type="number"
+                            id="videoCrf"
+                            name="videoCrf"
+                            value={encodingSettings.videoCrf}
+                            onChange={handleEncodingSettingChange}
+                            min="0" max="51"
+                        />
+                    </>
+                )}
+
+                {encodingSettings.videoCodec === 'hevc_rkmpp' && (
+                    <>
+                        <label htmlFor="rc_mode">RC Mode:</label>
+                        <input
+                            type="number"
+                            id="rc_mode"
+                            name="rc_mode"
+                            value={encodingSettings.rc_mode}
+                            onChange={handleEncodingSettingChange}
+                        />
+
+                        <label htmlFor="qp_init">QP Init:</label>
+                        <input
+                            type="number"
+                            id="qp_init"
+                            name="qp_init"
+                            value={encodingSettings.qp_init}
+                            onChange={handleEncodingSettingChange}
+                        />
+                    </>
+                )}
                 
                 <label>Audio Codec:</label>
                 <span>{encodingSettings.audioCodec}</span>

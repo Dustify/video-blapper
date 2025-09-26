@@ -4,7 +4,7 @@ import { EventEmitter } from 'events';
 import fs from 'fs/promises';
 import path from 'path';
 import kill from 'tree-kill';
-import { ENCODES_DIR } from './config.js';
+import { ENCODES_OUTPUT_PATH } from './config.js';
 
 export interface EncodeJob {
   id: string;
@@ -13,6 +13,8 @@ export interface EncodeJob {
   videoCodec: string;
   videoPreset: string;
   videoCrf: number;
+  rc_mode?: number;
+  qp_init?: number;
   // Audio params
   audioCodec: string;
   audioBitrate: string;
@@ -42,7 +44,7 @@ class EncodeManager extends EventEmitter {
   }
 
   async initialize() {
-    await fs.mkdir(ENCODES_DIR, { recursive: true });
+    await fs.mkdir(ENCODES_OUTPUT_PATH, { recursive: true });
   }
 
   async addJob(jobDetails: Omit<EncodeJob, 'id' | 'status' | 'progress'>): Promise<EncodeJob> {
@@ -77,16 +79,27 @@ class EncodeManager extends EventEmitter {
       const outputFileName = (job.outputFilename && job.outputFilename.trim() !== '')
         ? `${job.outputFilename}.mp4`
         : `${path.basename(job.filePath, '.mkv')}-encoded.mp4`;
-      const outputPath = path.join(ENCODES_DIR, outputFileName);
+      const outputPath = path.join(ENCODES_OUTPUT_PATH, outputFileName);
       job.outputPath = outputPath;
 
       const args: string[] = [
         '-i', job.filePath,
         '-map', '0:v:0',
         '-c:v', job.videoCodec,
-        '-preset', job.videoPreset,
-        '-crf', String(job.videoCrf),
       ];
+
+      // Add codec-specific video parameters
+      if (job.videoCodec === 'libx264' || job.videoCodec === 'libx265') {
+        args.push('-preset', job.videoPreset);
+        args.push('-crf', String(job.videoCrf));
+      } else if (job.videoCodec === 'hevc_rkmpp') {
+          if (job.rc_mode !== undefined) {
+              args.push('-rc_mode', String(job.rc_mode));
+          }
+          if (job.qp_init !== undefined) {
+              args.push('-qp_init', String(job.qp_init));
+          }
+      }
 
       const videoFilters: string[] = [];
       if (job.deinterlace) videoFilters.push('yadif');
