@@ -1,4 +1,4 @@
-# Dockerfile (Corrected Version)
+# Dockerfile
 
 # ---- Builder Stage ----
 FROM node:22-alpine AS builder
@@ -29,9 +29,12 @@ RUN npm run build
 FROM node:22-alpine AS production
 WORKDIR /app
 
-# --- Add this line to install ffmpeg ---
-RUN apk add --no-cache ffmpeg
-# ------------------------------------
+# --- Install custom ffmpeg ---
+RUN apk add --no-cache wget dpkg && \
+    wget https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v7.1.2-1/jellyfin-ffmpeg7_7.1.2-1-bookworm_arm64.deb && \
+    dpkg -i jellyfin-ffmpeg7_7.1.2-1-bookworm_arm64.deb && \
+    rm jellyfin-ffmpeg7_7.1.2-1-bookworm_arm64.deb
+# -----------------------------
 
 ENV NODE_ENV=production
 
