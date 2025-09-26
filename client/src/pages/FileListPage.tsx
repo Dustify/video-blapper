@@ -1,28 +1,14 @@
 // client/src/pages/FileListPage.tsx
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { type MkvFile } from '../App';
 
-interface MkvFile {
-    filePath: string;
-    id: string;
+interface FileListPageProps {
+    mkvFiles: MkvFile[];
+    isFetchingList: boolean;
+    error: string | null;
 }
 
-export function FileListPage() {
-    const [mkvFiles, setMkvFiles] = useState<MkvFile[]>([]);
-    const [isFetchingList, setIsFetchingList] = useState<boolean>(true);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        fetch('/api/mkv-files')
-          .then(res => res.json())
-          .then(data => setMkvFiles(data.files))
-          .catch(err => {
-            setError('Failed to fetch MKV files. Is the server running?');
-            console.error(err);
-          })
-          .finally(() => setIsFetchingList(false));
-      }, []);
-
+export function FileListPage({ mkvFiles, isFetchingList, error }: FileListPageProps) {
     if (isFetchingList) return <p>Searching for MKV files...</p>;
     if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
 

@@ -1,7 +1,12 @@
 // client/src/pages/VideoDetailPage.tsx
 import { useState, useEffect } from 'react';
-import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { type MkvFile } from '../App';
+
+interface VideoDetailPageProps {
+    mkvFiles: MkvFile[];
+}
 
 // ... (Keep all the interface definitions: StreamTags, MediaStream, etc.)
 interface StreamTags {
@@ -127,9 +132,10 @@ const formatBytes = (bytesStr: string): string => {
 };
 
 
-export function VideoDetailPage() {
+export function VideoDetailPage({ mkvFiles }: VideoDetailPageProps) {
     const { fileId } = useParams<{ fileId: string }>();
     const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
 
     const [screenshots, setScreenshots] = useState<string[]>([]);
     const [isProcessing, setIsProcessing] = useState<boolean>(true);
@@ -279,6 +285,13 @@ export function VideoDetailPage() {
             }
 
             toast.success('Added to encode queue!');
+            
+            // Navigate to the next video
+            const currentIndex = mkvFiles.findIndex(file => file.id === fileId);
+            if (currentIndex !== -1 && currentIndex < mkvFiles.length - 1) {
+                navigate(`/video/${mkvFiles[currentIndex + 1].id}`);
+            }
+
         } catch (error) {
             console.error("Failed to add to queue", error);
             toast.error('Failed to add to queue.');
@@ -406,10 +419,34 @@ export function VideoDetailPage() {
             </div>
         </div>
     );
+    
+    const renderNavigation = (style: React.CSSProperties = {}) => {
+        const currentIndex = mkvFiles.findIndex(file => file.id === fileId);
+        if (currentIndex === -1) return null;
+
+        const prevFile = currentIndex > 0 ? mkvFiles[currentIndex - 1] : null;
+        const nextFile = currentIndex < mkvFiles.length - 1 ? mkvFiles[currentIndex + 1] : null;
+
+        return (
+            <div style={{ display: 'flex', justifyContent: 'space-between', ...style }}>
+                {prevFile ? (
+                    <Link to={`/video/${prevFile.id}`}>← Previous</Link>
+                ) : (
+                    <span style={{ color: '#888', cursor: 'not-allowed' }}>← Previous</span>
+                )}
+                {nextFile ? (
+                    <Link to={`/video/${nextFile.id}`}>Next →</Link>
+                ) : (
+                    <span style={{ color: '#888', cursor: 'not-allowed' }}>Next →</span>
+                )}
+            </div>
+        );
+    };
 
     return (
         <div>
             <p><Link to="/">← Back to File List</Link></p>
+            {renderNavigation({ marginBottom: '20px' })}
             <h1>Video Details</h1>
             <p><b>File:</b> {filePath}</p>
 
@@ -454,6 +491,7 @@ export function VideoDetailPage() {
                     </div>
                     </div>
                 )}
+                 {renderNavigation({ marginTop: '20px' })}
                 </>
             )}
         </div>
