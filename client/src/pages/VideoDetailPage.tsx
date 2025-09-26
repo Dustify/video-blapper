@@ -169,10 +169,10 @@ export function VideoDetailPage({ mkvFiles }: VideoDetailPageProps) {
             try {
                 const response = await fetch('/api/encode/defaults');
                 if (response.ok) {
-                    const data = await response.json();
-                    setEncodingSettings(prev => ({ ...prev, ...data }));
-                    if (data.outputFilename) {
-                        setOutputFilename(data.outputFilename);
+                    const { outputFilename: defaultFilename, ...defaultSettings } = await response.json();
+                    setEncodingSettings(prev => ({ ...prev, ...defaultSettings }));
+                    if (defaultFilename) {
+                        setOutputFilename(defaultFilename);
                         filenameSetFromDefaults = true;
                     }
                 }
@@ -275,8 +275,8 @@ export function VideoDetailPage({ mkvFiles }: VideoDetailPageProps) {
                     audioStreams: selectedAudioStreams,
                     crop: cropResult?.startsWith('crop=') ? cropResult : null,
                     deinterlace: !!deinterlaceReason,
-                    outputFilename,
                     ...encodingSettings,
+                    outputFilename,
                 }),
             });
 

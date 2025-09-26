@@ -11,6 +11,13 @@ interface EncodeJob {
   startTime?: number;
   originalFileSize?: number;
   currentFileSize?: number;
+  videoCodec: string;
+  videoPreset?: string;
+  videoCrf?: number;
+  rc_mode?: number;
+  qp_init?: number;
+  audioCodec: string;
+  audioBitrate: string;
 }
 
 interface QueueState {
@@ -85,12 +92,32 @@ export function EncodeQueue() {
         }
     }
 
+    const renderEncodingParams = () => {
+      let params = `${job.videoCodec}`;
+      if (job.videoPreset) {
+        params += ` (preset: ${job.videoPreset})`;
+      }
+      if (job.videoCrf !== undefined) {
+        params += ` (crf: ${job.videoCrf})`;
+      }
+      if (job.rc_mode !== undefined) {
+          params += ` (rc_mode: ${job.rc_mode})`
+      }
+      if (job.qp_init !== undefined) {
+        params += ` (qp_init: ${job.qp_init})`
+    }
+
+      params += `, ${job.audioCodec} @ ${job.audioBitrate}`;
+      return params;
+    };
+
 
     return (
         <div key={job.id} style={{ border: '1px solid #ddd', padding: '10px', marginBottom: '10px' }}>
             <p style={{ wordBreak: 'break-all' }}><b>File:</b> {job.filePath}</p>
             {job.outputPath && <p style={{ wordBreak: 'break-all' }}><b>Output:</b> {job.outputPath}</p>}
             <p><b>Status:</b> {job.status}</p>
+            <p><b>Parameters:</b> {renderEncodingParams()}</p>
             {job.status === 'processing' && (
                 <>
                     <progress value={job.progress} max="100" style={{ width: '100%' }} />
