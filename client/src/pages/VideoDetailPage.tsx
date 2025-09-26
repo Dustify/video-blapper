@@ -154,6 +154,22 @@ export function VideoDetailPage() {
     const currentAspectRatio = searchParams.get('ar') || 'None';
 
     useEffect(() => {
+        // Fetch default encoding settings when the component mounts
+        const fetchDefaults = async () => {
+            try {
+                const response = await fetch('/api/encode/defaults');
+                if (response.ok) {
+                    const data = await response.json();
+                    setEncodingSettings(prev => ({ ...prev, ...data }));
+                }
+            } catch (error) {
+                console.error("Failed to fetch default encoding settings", error);
+            }
+        };
+        fetchDefaults();
+    }, []);
+
+    useEffect(() => {
         if (filePath) {
             // Set default output filename from source file path
             const baseName = filePath.split(/[\\/]/).pop()?.replace(/\.[^/.]+$/, "") || '';

@@ -5,3 +5,4 @@ encodes
 *.deb
 *.deb.*
 docker-compose.override.yml
+defaults.json

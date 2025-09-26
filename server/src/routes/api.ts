@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { spawn } from 'child_process';
 import crypto from 'crypto';
-import { MOUNTED_FOLDER_PATH, SCREENSHOTS_DIR } from '../config.js';
+import { MOUNTED_FOLDER_PATH, SCREENSHOTS_DIR, DEFAULTS_PATH } from '../config.js';
 import { encodeManager } from '../encodeManager.js';
 
 const router = Router();
@@ -215,7 +215,29 @@ router.post('/generate-screenshots', async (req: Request, res: Response) => {
 
 // --- Encode Queue Routes ---
 
-router.post('/encode', (req, res) => {
+router.get('/encode/defaults', async (req, res) => {
+  try {
+    const defaults = await fs.readFile(DEFAULTS_PATH, 'utf-8');
+    res.json(JSON.parse(defaults));
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      // If the file doesn't exist, return some fallback defaults
+      res.json({
+        videoCodec: 'libx265',
+        videoPreset: 'veryslow',
+        videoCrf: 18,
+        rc_mode: 2,
+        qp_init: -1,
+        audioCodec: 'aac',
+        audioBitrate: '160k',
+      });
+    } else {
+      res.status(500).json({ message: 'Failed to get default settings.' });
+    }
+  }
+});
+
+router.post('/encode', async (req, res) => {
   const {
     filePath,
     aspectRatio,
@@ -235,6 +257,23 @@ router.post('/encode', (req, res) => {
   if (!filePath || !audioStreams) {
     return res.status(400).json({ message: 'filePath and audioStreams are required.' });
   }
+
+  // Save the encoding settings as new defaults
+  const newDefaults = {
+    videoCodec,
+    videoPreset,
+    videoCrf,
+    rc_mode,
+    qp_init,
+    audioCodec,
+    audioBitrate,
+  };
+  try {
+    await fs.writeFile(DEFAULTS_PATH, JSON.stringify(newDefaults, null, 2));
+  } catch (error) {
+    console.error('Failed to save default settings:', error);
+  }
+
   const job = encodeManager.addJob({
     filePath,
     aspectRatio: aspectRatio || 'None',

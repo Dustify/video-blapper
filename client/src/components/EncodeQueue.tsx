@@ -63,18 +63,28 @@ export function EncodeQueue() {
   };
 
   const renderJob = (job: EncodeJob) => {
-    let etc = '';
-    let estimatedSize = '';
+    const timeDetails = {
+        elapsed: '',
+        remaining: '',
+        total: '',
+        estimatedSize: ''
+    };
+
     if (job.status === 'processing' && job.startTime && job.progress > 0) {
         const elapsedMs = Date.now() - job.startTime;
         const totalEstimatedMs = (elapsedMs / job.progress) * 100;
         const remainingMs = totalEstimatedMs - elapsedMs;
-        etc = ` (ETC: ${formatRemainingTime(remainingMs / 1000)})`;
+
+        timeDetails.elapsed = formatRemainingTime(elapsedMs / 1000);
+        timeDetails.remaining = formatRemainingTime(remainingMs / 1000);
+        timeDetails.total = formatRemainingTime(totalEstimatedMs / 1000);
+
         if (job.currentFileSize) {
             const estimatedTotalSize = (job.currentFileSize / job.progress) * 100;
-            estimatedSize = ` / est. ${formatBytes(estimatedTotalSize)}`;
+            timeDetails.estimatedSize = ` / est. ${formatBytes(estimatedTotalSize)}`;
         }
     }
+
 
     return (
         <div key={job.id} style={{ border: '1px solid #ddd', padding: '10px', marginBottom: '10px' }}>
@@ -84,8 +94,13 @@ export function EncodeQueue() {
             {job.status === 'processing' && (
                 <>
                     <progress value={job.progress} max="100" style={{ width: '100%' }} />
-                    <p>{job.progress}%{etc}</p>
-                    <p>Size: {formatBytes(job.currentFileSize)}{estimatedSize}</p>
+                    <p>{job.progress}%</p>
+                    <p>
+                        Elapsed: {timeDetails.elapsed} | 
+                        Remaining: {timeDetails.remaining} | 
+                        Total: {timeDetails.total}
+                    </p>
+                    <p>Size: {formatBytes(job.currentFileSize)}{timeDetails.estimatedSize}</p>
                 </>
             )}
             <p>Original Size: {formatBytes(job.originalFileSize)}</p>
