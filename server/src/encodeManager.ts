@@ -123,7 +123,7 @@ class EncodeManager extends EventEmitter {
       args.push('-y', outputPath);
       console.log(`[EncodeManager] Spawning ffmpeg with args: ${args.join(' ')}`);
 
-      this.currentProcess = spawn('ffmpeg', args);
+      this.currentProcess = spawn('/usr/lib/jellyfin-ffmpeg/ffmpeg', args);
       
       let ffmpegOutput = '';
       let totalDuration = 0;

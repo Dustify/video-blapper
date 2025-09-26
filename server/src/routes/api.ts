@@ -41,7 +41,7 @@ async function detectCrop(filePath: string, duration: number): Promise<string> {
 
   for (const ts of timestamps) {
     const crop = await new Promise<string>((resolve, reject) => {
-      const ffmpegProcess = spawn('ffmpeg', [
+      const ffmpegProcess = spawn('/usr/lib/jellyfin-ffmpeg/ffmpeg', [
         '-ss', String(ts),
         '-t', '5', // analyze for 5 seconds
         '-i', filePath,
@@ -111,7 +111,7 @@ router.post('/generate-screenshots', async (req: Request, res: Response) => {
   try {
     console.log(`[Request for ${path.basename(filePath)}]`);
     const mediaInfo = await new Promise<any>((resolve, reject) => {
-      const ffprobeProcess = spawn('ffprobe', ['-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', filePath]);
+      const ffprobeProcess = spawn('/usr/lib/jellyfin-ffmpeg/ffprobe', ['-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', filePath]);
       let stdout = '';
       ffprobeProcess.stdout.on('data', (data) => (stdout += data.toString()));
       ffprobeProcess.on('error', reject);
@@ -181,7 +181,7 @@ router.post('/generate-screenshots', async (req: Request, res: Response) => {
         if (filters.length > 0) args.push('-vf', filters.join(', '));
         args.push('-vframes', '1', '-q:v', '2', outputPath);
 
-        const ffmpegProcess = spawn('ffmpeg', args);
+        const ffmpegProcess = spawn('/usr/lib/jellyfin-ffmpeg/ffmpeg', args);
         ffmpegProcess.on('error', reject);
         ffmpegProcess.on('close', (code) => {
           if (code === 0) {
