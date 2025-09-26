@@ -29,14 +29,46 @@ interface StreamTags {
     format: FormatInfo;
   }
 
-const ASPECT_RATIO_OPTIONS = ['None', '4:3', '16:9', '1.85:1', '2.39:1'];
+  interface CropDimensions {
+    w: number;
+    h: number;
+    x: number;
+    y: number;
+  }
+  
+  interface VideoStreamInfo {
+    width?: number;
+    height?: number;
+    sample_aspect_ratio?: string;
+    cropDimensions?: CropDimensions | null;
+  }
+  
+const ASPECT_RATIO_OPTIONS = ['None', '4:3', '16:9', '1.85:1', '2.00:1', '2.39:1'];
 
-// ... (Keep the helper functions: getBestAspectRatio, formatDuration, formatBytes)
-const getBestAspectRatio = (dar: string | null): string => {
-    if (!dar) return ASPECT_RATIO_OPTIONS[0];
 
-    const darValue = dar.includes(':') ? parseFloat(dar.split(':')[0]) / parseFloat(dar.split(':')[1]) : parseFloat(dar);
-    if (isNaN(darValue)) return ASPECT_RATIO_OPTIONS[0];
+const getBestAspectRatio = (videoStream: VideoStreamInfo | null): string => {
+    console.log('[getBestAspectRatio] Received video stream info:', videoStream);
+
+    if (!videoStream?.width || !videoStream?.height) {
+        console.log('[getBestAspectRatio] Missing width or height. Defaulting to None.');
+        return ASPECT_RATIO_OPTIONS[0];
+    }
+
+    const { width, height, sample_aspect_ratio, cropDimensions } = videoStream;
+    
+    const displayWidth = cropDimensions ? cropDimensions.w : width;
+    const displayHeight = cropDimensions ? cropDimensions.h : height;
+    
+    let sar = 1;
+    if (sample_aspect_ratio && sample_aspect_ratio.includes(':')) {
+        const [sarW, sarH] = sample_aspect_ratio.split(':').map(Number);
+        if (sarW && sarH) sar = sarW / sarH;
+    }
+    console.log(`[getBestAspectRatio] Parsed values: displayWidth=${displayWidth}, displayHeight=${displayHeight}, sar=${sar}`);
+
+
+    const calculatedDAR = (displayWidth / displayHeight) * sar;
+    console.log(`[getBestAspectRatio] Calculated DAR: ${calculatedDAR}`);
 
     let closestOption = ASPECT_RATIO_OPTIONS[0];
     let smallestDiff = Infinity;
@@ -45,11 +77,13 @@ const getBestAspectRatio = (dar: string | null): string => {
         '4:3': 4 / 3,
         '16:9': 16 / 9,
         '1.85:1': 1.85,
+        '2.00:1': 2.00,
         '2.39:1': 2.39,
     };
 
     for (const option in ratios) {
-        const diff = Math.abs(darValue - ratios[option]);
+        const diff = Math.abs(calculatedDAR - ratios[option]);
+        console.log(`[getBestAspectRatio] Comparing with ${option} (${ratios[option].toFixed(3)}). Difference: ${diff.toFixed(3)}`);
         if (diff < smallestDiff) {
             smallestDiff = diff;
             closestOption = option;
@@ -57,9 +91,11 @@ const getBestAspectRatio = (dar: string | null): string => {
     }
     
     if (smallestDiff < 0.1) {
+        console.log(`[getBestAspectRatio] Found closest match: ${closestOption}`);
         return closestOption;
     }
     
+    console.log(`[getBestAspectRatio] No close match found. Defaulting to None.`);
     return ASPECT_RATIO_OPTIONS[0];
 };
 
@@ -122,7 +158,8 @@ export function VideoDetailPage() {
 
                 // On initial load, set the best-guess aspect ratio
                 if (!searchParams.get('ar')) {
-                    const bestGuess = getBestAspectRatio(data.displayAspectRatio);
+                    const bestGuess = getBestAspectRatio(data.videoStream);
+                    console.log(`[VideoDetailPage] Best guess for aspect ratio is: "${bestGuess}"`);
                     if (bestGuess !== 'None') {
                         setSearchParams({ ar: bestGuess }, { replace: true });
                     }

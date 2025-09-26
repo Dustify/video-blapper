@@ -108,6 +108,7 @@ router.post('/generate-screenshots', async (req: Request, res: Response) => {
   }
 
   try {
+    console.log(`[Request for ${path.basename(filePath)}]`);
     const mediaInfo = await new Promise<any>((resolve, reject) => {
       const ffprobeProcess = spawn('ffprobe', ['-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', filePath]);
       let stdout = '';
@@ -121,9 +122,16 @@ router.post('/generate-screenshots', async (req: Request, res: Response) => {
     
     const cropDetectResult = await detectCrop(filePath, duration);
     const videoStream = mediaInfo?.streams?.find((s: any) => s.codec_type === 'video');
-    const displayAspectRatio = videoStream?.display_aspect_ratio || null;
     const filters: string[] = [];
     let deinterlaceReason: string | null = null;
+    let cropDimensions = null;
+    
+    console.log(`→ Client requested aspect ratio: ${aspectRatio || 'None'}`);
+    console.log(`→ Video Stream Details from ffprobe:`);
+    console.log(`  - Width: ${videoStream?.width}`);
+    console.log(`  - Height: ${videoStream?.height}`);
+    console.log(`  - Sample Aspect Ratio (SAR): ${videoStream?.sample_aspect_ratio}`);
+    console.log(`  - Display Aspect Ratio (DAR): ${videoStream?.display_aspect_ratio}`);
 
     if (videoStream?.field_order && videoStream.field_order !== 'progressive') {
       filters.push('yadif');
@@ -132,15 +140,29 @@ router.post('/generate-screenshots', async (req: Request, res: Response) => {
 
     if (cropDetectResult.startsWith('crop=')) {
         filters.push(cropDetectResult);
+        const parts = cropDetectResult.replace('crop=', '').split(':');
+        cropDimensions = {
+            w: parseInt(parts[0], 10),
+            h: parseInt(parts[1], 10),
+            x: parseInt(parts[2], 10),
+            y: parseInt(parts[3], 10),
+        };
     }
 
     if (aspectRatio && aspectRatio !== 'None' && videoStream) {
         const [arW, arH] = aspectRatio.split(':').map(Number);
         if (arW && arH) {
-            const newHeight = Math.round(videoStream.width * (arH / arW));
-            filters.push(`scale=${videoStream.width}:${newHeight}`);
+            const currentWidth = cropDimensions ? cropDimensions.w : videoStream.width;
+            const newHeight = Math.round(currentWidth * (arH / arW));
+            const scaleFilter = `scale=${currentWidth}:${newHeight}`;
+            filters.push(scaleFilter);
+            console.log(`→ Applying manual aspect ratio. Adding filter: "${scaleFilter}"`);
         }
+    } else {
+        console.log('→ No manual aspect ratio override. Not applying scale filter.');
     }
+    
+    console.log(`→ Final FFmpeg filters: [${filters.join(', ')}]`);
 
     const fileHash = crypto.createHash('sha1').update(filePath).digest('hex');
     const outputDir = path.join(SCREENSHOTS_DIR, fileHash);
@@ -155,7 +177,7 @@ router.post('/generate-screenshots', async (req: Request, res: Response) => {
         const outputPath = path.join(outputDir, screenshotName);
         
         const args = ['-sn', '-ss', String(timestamp), '-i', filePath];
-        if (filters.length > 0) args.push('-vf', filters.join(','));
+        if (filters.length > 0) args.push('-vf', filters.join(', '));
         args.push('-vframes', '1', '-q:v', '2', outputPath);
 
         const ffmpegProcess = spawn('ffmpeg', args);
@@ -176,7 +198,12 @@ router.post('/generate-screenshots', async (req: Request, res: Response) => {
       cropDetectResult,
       mediaInfo,
       deinterlaceReason,
-      displayAspectRatio,
+      videoStream: {
+        width: videoStream?.width,
+        height: videoStream?.height,
+        sample_aspect_ratio: videoStream?.sample_aspect_ratio,
+        cropDimensions,
+      }
     });
 
   } catch (error) {
