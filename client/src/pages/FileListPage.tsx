@@ -28,7 +28,7 @@ export function FileListPage() {
 
     return (
         <div>
-            <h1>Video App</h1>
+            <h1>video-blapper</h1>
             <h2>Select an MKV File 📂</h2>
             <ul>
                 {mkvFiles.map(file => (
