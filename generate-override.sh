@@ -7,10 +7,13 @@ DEVICES=(
   hevc_service hevc-service rkvdec rkvenc vepu h265e
 )
 
-# Start writing the override file
+# Start writing the override file with security options
 cat > docker-compose.override.yml << EOL
 services:
   app:
+    security_opt:
+      - "systempaths=unconfined"
+      - "apparmor=unconfined"
     devices:
 EOL
 
